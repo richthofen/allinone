@@ -52,8 +52,11 @@ def de_prio2(x, y):
 def cal(symbol):
     # df = ts.get_k_data(symbol, index=True)
     df = ts.get_k_data(symbol)
+    
     try:
         # print df
+	df.to_csv(symbol + ".csv" ,columns=['open','close','high','low','volume'])
+	df.to_csv(symbol + "_base.csv")
         open = df['open'].values
         dates = df['date'].values
         lows = df['low'].values
@@ -74,6 +77,7 @@ def cal(symbol):
         ncloses = norm(closes)
         nslowk = norm(slowk)
         nslowd = norm(slowd)
+
         kdj = norm(kdj)
         nkdj = np.array([ x>0 and 1 or 0 for x in kdj])
         macd1 = ( macd )
@@ -114,4 +118,5 @@ with open("s.log") as file:
     # print "222"
     print msg
     if "" != msg :
-        send.send_msg(msg)
+        pass
+        #send.send_msg(msg)
