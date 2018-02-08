@@ -55,9 +55,9 @@ def cal(symbol):
     
     try:
         # print df
-	df.to_csv(symbol + ".csv" ,columns=['open','close','high','low','volume'])
-	df.to_csv(symbol + "_base.csv")
-        open = df['open'].values
+        df.to_csv(symbol + ".csv" ,columns=['open','close','high','low','volume'])
+        df.to_csv(symbol + "_base.csv")
+        op = df['open'].values
         dates = df['date'].values
         lows = df['low'].values
         highs = df['high'].values
@@ -103,12 +103,12 @@ def cal(symbol):
 # print all['code'].values
 
 with open("s.log") as file:
-    data = file.read().split("\r\n",113)
+    data = file.read().split("\n",113)
     # print data[0:-1]
     msg = ""
     # print ts.get_k_data('600000')
     for symbol in data[0:-1]:
-        # print symbol
+        print (symbol)
         ret = cal(symbol)
         if('' != ret.strip()):
             if('' != msg.strip()):
@@ -116,7 +116,7 @@ with open("s.log") as file:
         msg += ret
     # msg = "22"
     # print "222"
-    print msg
+    print (msg)
     if "" != msg :
         pass
         #send.send_msg(msg)

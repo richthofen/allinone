@@ -20,13 +20,15 @@ by iteratively predicting and sampling from the predictions.
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
-import sys
-print (sys.path)
+from tensorflow.contrib.timeseries.python.timeseries import feature_keys
 from os import path
 import tempfile
 import numpy
 import tensorflow as tf
-
+import evaluate
+import profit
+import os
+os.environ['TF_CPP_MIN_LOG_LEVEL']='0'
 try:
   import matplotlib  # pylint: disable=g-import-not-at-top
   matplotlib.use("TkAgg")  # Need Tk for interactive plots.
@@ -40,27 +42,51 @@ except ImportError:
   HAS_MATPLOTLIB = False
 
 _MODULE_PATH = path.dirname(__file__)
-_DATA_FILE = path.join(_MODULE_PATH, "000810.csv")
+# _DATA_FILE = path.join(_MODULE_PATH, "600887.csv")
+_PRI_NUM = 10
 # _DATA_FILE = path.join(_MODULE_PATH, "cc.log")
-
+ori_values = []
+def loadCSVfile2(file, line):
+    try:
+        tmp = numpy.loadtxt(file, dtype=numpy.str, delimiter=",", skiprows= 1)
+        times  = tmp[0:line,0].astype(numpy.float)
+        global  ori_values 
+        ori_values = tmp[:,[2,3,4,5,6]].astype(numpy.float)
+        values = tmp[0:line,[2,3,4,5,6]].astype(numpy.float)
+        return {
+        feature_keys.TrainEvalFeatures.TIMES: times,
+            feature_keys.TrainEvalFeatures.VALUES: values
+        }
+    except:
+        return None
 
 def multivariate_train_and_sample(
-    csv_file_name=_DATA_FILE, export_directory=None, training_steps=500):
+    csv_file_name, export_directory=None, training_steps=500, line=600, symbol = None):
   """Trains, evaluates, and exports a multivariate model."""
   estimator = tf.contrib.timeseries.StructuralEnsembleRegressor(
       periodicities=[], num_features=5)
-  reader = tf.contrib.timeseries.CSVReader(
-      csv_file_name,
-      skip_header_lines = 1,
-      read_num_records_hint = 600,
-      column_names=((tf.contrib.timeseries.TrainEvalFeatures.TIMES,)
-                    + (tf.contrib.timeseries.TrainEvalFeatures.VALUES,) * 5))
+  weight = numpy.zeros(11)
+  weight [10] = symbol
+  data = loadCSVfile2(csv_file_name, line)
+  if None == data:
+      print("data get error")
+      return
+  reader = tf.contrib.timeseries.NumpyReader(data)
+#   reader = tf.contrib.timeseries.CSVReader(
+#       csv_file_name,
+#       skip_header_lines = 1,
+#       read_num_records_hint = 600,
+#       column_names=((tf.contrib.timeseries.TrainEvalFeatures.TIMES,)
+#                     + (tf.contrib.timeseries.TrainEvalFeatures.VALUES,) * 5))
   train_input_fn = tf.contrib.timeseries.RandomWindowInputFn(
       # Larger window sizes generally produce a better covariance matrix.
-      reader, batch_size=8, window_size=65)
+      reader, batch_size=8, window_size=128)
+      
+  print("start train ")
   estimator.train(input_fn=train_input_fn, steps=training_steps)
   evaluation_input_fn = tf.contrib.timeseries.WholeDatasetInputFn(reader)
   current_state = estimator.evaluate(input_fn=evaluation_input_fn, steps=1)
+  print("after eval ")
   values = [current_state["observed"]]
   times = [current_state[tf.contrib.timeseries.FilteringResults.TIMES]]
   # Export the model so we can do iterative prediction and filtering without
@@ -75,7 +101,9 @@ def multivariate_train_and_sample(
     with tf.Session() as session:
       signatures = tf.saved_model.loader.load(
           session, [tf.saved_model.tag_constants.SERVING], export_location)
-      for _ in range(10):
+      global  ori_values 
+      predicts = []
+      for _ in range(_PRI_NUM):
         current_prediction = (
             tf.contrib.timeseries.saved_model_utils.predict_continuation(
                 continue_from=current_state, signatures=signatures,
@@ -98,7 +126,37 @@ def multivariate_train_and_sample(
                 signatures=signatures,
                 features=filtering_features))
         values.append(next_sample[None, None, :])
+        predicts.append(next_sample[None, None, :])
         times.append(current_state["times"])
+
+  pre = numpy.array(predicts)
+  pre = numpy.squeeze(pre)
+  pre = pre[:,[0,1,2,3]]
+  close = ori_values[line,1] 
+  line += 1
+#   weight[0] = line
+#   # 10 day mse
+  ob = ori_values[line :line + 10,[0,1,2,3]].astype(numpy.float)
+#   mse10 = mse(ob,pre)
+#   weight[1] = mse10[9]
+#   # 10 day profit
+#   weight[4],weight[5] = cal_profit(ob, pre, mse10)
+#   # 5 day mse
+#   ob = ori_values[line :line + 5,[0,1,2,3]].astype(numpy.float)
+#   weight[2] = mse10[4]
+#   weight[6],weight[7] = cal_profit(ob, pre, mse10)
+#   # 1 day mse
+#   ob = ori_values[line :line + 1,[0,1,2,3]].astype(numpy.float)
+#   weight[3] = mse10[0]
+#   weight[8],weight[9] = cal_profit(ob, pre, mse10)
+ 
+  numpy.set_printoptions(suppress=True)
+#   tofile = numpy.array([weight])
+#   with open('result/' + symbol + 'result.csv', 'ab') as f:
+    #   numpy.savetxt(f,tofile)
+  with open('result/' + symbol + 'compare.csv', 'ab') as f:
+      tofile = numpy.append(ob, pre, axis=1)
+      numpy.savetxt(f,tofile)
   all_observations = numpy.squeeze(numpy.concatenate(values, axis=1), axis=0)
   all_times = numpy.squeeze(numpy.concatenate(times, axis=1), axis=0)
   return all_times, all_observations
@@ -108,11 +166,20 @@ def main(unused_argv):
   if not HAS_MATPLOTLIB:
     raise ImportError(
         "Please install matplotlib to generate a plot from this example.")
-  all_times, all_observations = multivariate_train_and_sample()
-  # Show where sampling starts on the plot
-  pyplot.axvline(1000, linestyle="dotted")
-  pyplot.plot(all_times, all_observations)
-  pyplot.show()
+  abs_path =  path.join(_MODULE_PATH, 'back')
+  with open(abs_path) as file:
+    data = file.read().split("\n",113)
+    for symbol in data:
+      if '' == symbol:
+          break
+      print(symbol)
+      l = 0
+      abs_path =  path.join(_MODULE_PATH, 'data/' + symbol + ".csv" )
+      with open( abs_path) as f:
+        l = len(f.readlines())
+        print(symbol)
+        for i in range(l - 100, l - 10, 5):
+          multivariate_train_and_sample(line = i, csv_file_name = abs_path, symbol = symbol)
 
 
 if __name__ == "__main__":

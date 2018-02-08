@@ -23,7 +23,7 @@ def get_token():
     url = 'https://qyapi.weixin.qq.com/cgi-bin/gettoken'
     req = requests.post(url, params = corp)
     data = json.loads(req.text)
-    print data
+    print(data) 
     return data["access_token"]
 
 def send_msg(msg):
