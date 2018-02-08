@@ -154,7 +154,8 @@ def multivariate_train_and_sample(
 #   tofile = numpy.array([weight])
 #   with open('result/' + symbol + 'result.csv', 'ab') as f:
     #   numpy.savetxt(f,tofile)
-  with open('result/' + symbol + 'compare.csv', 'ab') as f:
+  abs_path =  path.join(_MODULE_PATH, 'result/' + symbol + "compare.csv" )
+  with open(abs_path, 'ab') as f:
       tofile = numpy.append(ob, pre, axis=1)
       numpy.savetxt(f,tofile)
   all_observations = numpy.squeeze(numpy.concatenate(values, axis=1), axis=0)

@@ -3,3 +3,4 @@ quant/src/__pycache__/
 quant/src/evaluate.py
 quant/src/profit.py
 quant/src/data
+quant/src/result
