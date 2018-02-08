@@ -56,7 +56,7 @@ def cal(symbol):
     try:
         # print df
         #df.to_csv(symbol + ".csv" ,columns=['open','close','high','low','volume'])
-        df.to_csv(symbol + ".csv")
+        df.to_csv("data/" + symbol + ".csv")
         op = df['open'].values
         dates = df['date'].values
         lows = df['low'].values
