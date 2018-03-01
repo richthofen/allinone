@@ -140,6 +140,7 @@ def multivariate_train_and_sample(
   abs_path =  path.join(_MODULE_PATH, 'predict' )
   preProfit,buy,sell = profit.findTime(pre)
   with open(abs_path, 'a') as f:
+    global tofile
     tofile += "%s, profit:%f, buy day@%f, sell day@%f\n" %(symbol, preProfit, buy, sell)
     if preProfit > 0.06 and buy < 1.01:
         f.write(tofile)
