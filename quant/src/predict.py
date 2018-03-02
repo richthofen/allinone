@@ -139,9 +139,12 @@ def multivariate_train_and_sample(
   numpy.set_printoptions(suppress=True)
   abs_path =  path.join(_MODULE_PATH, 'predict' )
   preProfit,buy,sell = profit.findTime(pre)
-  with open(abs_path, 'a') as f:
+  with open(abs_path, 'w') as f:
     global tofile
-    tofile += "%s, profit:%f, buy day@%f, sell day@%f\n" %(symbol, preProfit, buy, sell)
+    preBuy = pre[buy, 3]
+    buy = findfirstMin(ob, preBuy, buy)
+    start = min(preBuy * 1.01, close)
+    tofile += "%s, profit:%f, in:%f, buy day@%f, sell day@%f\n" %(symbol, preProfit, start, buy, sell)
     if preProfit > 0.06 and buy < 1.01:
         f.write(tofile)
   all_observations = numpy.squeeze(numpy.concatenate(values, axis=1), axis=0)
