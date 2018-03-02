@@ -28,6 +28,7 @@ import tensorflow as tf
 import evaluate
 import profit
 import os
+import pathlib
 os.environ['TF_CPP_MIN_LOG_LEVEL']='0'
 try:
   import matplotlib  # pylint: disable=g-import-not-at-top
@@ -63,7 +64,7 @@ def loadCSVfile2(file, line):
         return None
 
 def multivariate_train_and_sample(
-    csv_file_name, export_directory=None, training_steps=500, line=600, symbol = None):
+    csv_file_name, export_directory=None, training_steps=5, line=600, symbol = None):
   """Trains, evaluates, and exports a multivariate model."""
   estimator = tf.contrib.timeseries.StructuralEnsembleRegressor(
       periodicities=[], num_features=5)
@@ -74,12 +75,6 @@ def multivariate_train_and_sample(
       print("data get error")
       return
   reader = tf.contrib.timeseries.NumpyReader(data)
-#   reader = tf.contrib.timeseries.CSVReader(
-#       csv_file_name,
-#       skip_header_lines = 1,
-#       read_num_records_hint = 600,
-#       column_names=((tf.contrib.timeseries.TrainEvalFeatures.TIMES,)
-#                     + (tf.contrib.timeseries.TrainEvalFeatures.VALUES,) * 5))
   train_input_fn = tf.contrib.timeseries.RandomWindowInputFn(
       # Larger window sizes generally produce a better covariance matrix.
       reader, batch_size=8, window_size=128)
@@ -135,22 +130,23 @@ def multivariate_train_and_sample(
   pre = numpy.squeeze(pre)
   pre = pre[:,[0,1,2,3]]
   print (pre)
-  close = ori_values[line - 1,1] 
+  ob = ori_values[line :,[0,1,2,3]].astype(numpy.float)
+  with open('result/' + symbol + 'stage' + str(line) + '.csv', 'wb') as f:
+    sss = numpy.append(ob, pre, axis=1)
+    numpy.savetxt(f,sss)
+  return pre, ob
+
+
+def calPredict(predictos, close):
   numpy.set_printoptions(suppress=True)
   abs_path =  path.join(_MODULE_PATH, 'predict' )
-  preProfit,buy,sell = profit.findTime(pre)
-  with open(abs_path, 'w') as f:
-    global tofile
-    preBuy = pre[buy, 3]
-    buy = findfirstMin(ob, preBuy, buy)
-    start = min(preBuy * 1.01, close)
-    tofile += "%s, profit:%f, in:%f, buy day@%f, sell day@%f\n" %(symbol, preProfit, start, buy, sell)
-    if preProfit > 0.06 and buy < 1.01:
-        f.write(tofile)
-  all_observations = numpy.squeeze(numpy.concatenate(values, axis=1), axis=0)
-  all_times = numpy.squeeze(numpy.concatenate(times, axis=1), axis=0)
-  return all_times, all_observations
-
+  preProfit,buy,sell = profit.findTime(predictos)
+  global tofile
+  preBuy = predictos[buy, 3]
+  buy = findfirstMin(ob, preBuy, buy)
+  start = min(preBuy * 1.01, close)
+  if preProfit > 0.06 and buy < 1.01:
+      tofile += "%s, profit:%f, in:%f, buy day@%f, sell day@%f\n" %(symbol, preProfit, start, buy, sell)
 
 def main(unused_argv):
   if not HAS_MATPLOTLIB:
@@ -165,11 +161,37 @@ def main(unused_argv):
       print(symbol)
       l = 0
       abs_path =  path.join(_MODULE_PATH, 'data/' + symbol + ".csv" )
-      with open( abs_path) as f:
+    #   try:
+    with open( abs_path) as f:
         l = len(f.readlines())
         print(symbol)
-        multivariate_train_and_sample(line = l - 1, csv_file_name = abs_path, symbol = symbol)
-
+        line = l - 6
+        stage_file = pathlib.Path('result/' + symbol + 'stage' + str(line) + '.csv')
+        print(stage_file)
+        read = None
+        if stage_file.is_file():
+            read = numpy.loadtxt(stage_file) 
+            ob = read[:,[0,1,2,3]]
+            pre = read[:,[4,5,6,7]] 
+        else:
+            pre,ob = multivariate_train_and_sample(line = line, csv_file_name = abs_path, symbol = symbol)
+        obj = evaluate.mse(ob, pre)
+        print("obj ")
+        if obj.sum() < 2.5:
+            line = l - 1
+            stage_file = pathlib.Path('result/' + symbol + 'stage' + str(line) + '.csv')
+            print(stage_file)
+            read = None
+            if stage_file.is_file():
+                read = numpy.loadtxt(stage_file) 
+                ob = read[:,[0,1,2,3]]
+                pre = read[:,[4,5,6,7]] 
+            else:
+                pre,ob = multivariate_train_and_sample(line = line, csv_file_name = abs_path, symbol = symbol)
+            close = ob[-1, 1]
+            calPredict(pre, close)
+    #   except Exception as e:
+        #   print(e)
 
 if __name__ == "__main__":
   tf.app.run(main=main)
