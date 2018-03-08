@@ -28,6 +28,7 @@ import tensorflow as tf
 import evaluate
 import profit
 import os
+import datetime
 import pathlib
 os.environ['TF_CPP_MIN_LOG_LEVEL']='0'
 try:
@@ -56,6 +57,15 @@ def loadCSVfile2(file, line):
         global  ori_values 
         ori_values = tmp[:,[2,3,4,5,6]].astype(numpy.float)
         values = tmp[0:line,[2,3,4,5,6]].astype(numpy.float)
+        last_date = tmp[-1, 1]
+        last_day = datetime.datetime.strptime(last_date, '%Y-%m-%d')
+        now = datetime.datetime.now()
+        diff_day = 1
+        if now.weekday() == 0:
+            diff_day = 3
+        delta = now - last_day
+        if diff_day > delta.days :
+            return None
         return {
         feature_keys.TrainEvalFeatures.TIMES: times,
             feature_keys.TrainEvalFeatures.VALUES: values
@@ -64,7 +74,7 @@ def loadCSVfile2(file, line):
         return None
 
 def multivariate_train_and_sample(
-    csv_file_name, export_directory=None, training_steps=500, line=600, symbol = None):
+    csv_file_name, export_directory=None, training_steps=5, line=600, symbol = None):
   """Trains, evaluates, and exports a multivariate model."""
   estimator = tf.contrib.timeseries.StructuralEnsembleRegressor(
       periodicities=[], num_features=5)
@@ -131,9 +141,9 @@ def multivariate_train_and_sample(
   pre = pre[:,[0,1,2,3]]
   print (pre)
   ob = ori_values[line :,[0,1,2,3]].astype(numpy.float)
-  with open('result/' + symbol + 'ob' + '_stage' + str(line) + '.csv', 'wb') as f:
+  with open('tmp_data/' + symbol + 'ob' + '_stage' + str(line) + '.csv', 'wb') as f:
     numpy.savetxt(f, ob)
-  with open('result/' + symbol + 'pre' + '_stage' + str(line) + '.csv', 'wb') as f:
+  with open('tmp_data/' + symbol + 'pre' + '_stage' + str(line) + '.csv', 'wb') as f:
     numpy.savetxt(f, pre)
   return pre, ob
 
@@ -147,8 +157,8 @@ def calPredict(symbol, predictos, close):
   if preProfit > 0.06 and buy < 1.01:
       tofile += "%s, profit:%f, in:%f, buy day@%f, sell day@%f\n" %(symbol, preProfit, start, buy, sell)
 def readObPre(symbol, line):
-    stage_ob_file = pathlib.Path('result/' + symbol + 'ob' + '_stage' + str(line) + '.csv')
-    stage_pre_file = pathlib.Path('result/' + symbol + 'pre' + '_stage' + str(line) + '.csv')
+    stage_ob_file = pathlib.Path('tmp_data/' + symbol + 'ob' + '_stage' + str(line) + '.csv')
+    stage_pre_file = pathlib.Path('tmp_data/' + symbol + 'pre' + '_stage' + str(line) + '.csv')
     ob = None
     pre = None
     if stage_ob_file.is_file():
@@ -174,8 +184,8 @@ def main(unused_argv):
           l = len(f.readlines())
           print(symbol)
           line = l - 6
-          stage_ob_file = pathlib.Path('result/' + symbol + 'ob' + '_stage' + str(line) + '.csv')
-          stage_pre_file = pathlib.Path('result/' + symbol + 'pre' + '_stage' + str(line) + '.csv')
+          stage_ob_file = pathlib.Path('tmp_data/' + symbol + 'ob' + '_stage' + str(line) + '.csv')
+          stage_pre_file = pathlib.Path('tmp_data/' + symbol + 'pre' + '_stage' + str(line) + '.csv')
           print(stage_ob_file)
           ob, pre = readObPre(symbol, line)
           print(pre)
