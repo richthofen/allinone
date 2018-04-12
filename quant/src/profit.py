@@ -46,12 +46,12 @@ def cal_profit(ob, pre, obj,lastobj):
     pday = 0.12 / 250
     preProfit,buy,sell=findTime(pre)
     pm = pre[sell,2]
-    preBuy = pre[buy, 3]
+    preBuy = pre[:, 3].min()
     print (pre)
     print("p:%f, buy:%d, sell:%d, prebuy:%f"%(preProfit, buy, sell, preBuy))
     buy = findfirstMin(ob, preBuy, buy)
     print("p:%f, buy:%d, sell:%d, prebuy:%f"%(preProfit, buy, sell, preBuy))
-    p = 1
+    p = 0.98
     start = min(preBuy, ob[buy,0] * p)
     # start = min(preBuy, ob[buy,0] * p)
     target = start * 1.01
@@ -69,6 +69,7 @@ def cal_profit(ob, pre, obj,lastobj):
             return 0,maxProfit,False
     i = buy
     inloss = 0
+    lastdown = 0
     for e in obj[buy:]:
         if e > 0.2:
             if pre[i, 2] > ob[i,0]:
@@ -91,9 +92,14 @@ def cal_profit(ob, pre, obj,lastobj):
             down = 0
             if lastobj.any():
                 x = i + 4
-                if lastobj[x-3:x].sum() < 0.6:
-                    up = pm - (pm - start) /sell * i
+                if x < 9:
+                    if lastobj[x-3:x].sum() > 0.6:
+                        print ("terminal at : last obj wrong out")
+                        end = ob[i,1]
+                        break
+            up = pm - (pm - start) /sell * i
             down = math.exp(i * pday) * start
+            print ("up %2f  down %2f"%(up, down))
             m = max(up,down) 
             target = max(target,m)
             if i != buy:
@@ -102,6 +108,13 @@ def cal_profit(ob, pre, obj,lastobj):
                     end = max(ob[i,0], target)
                     print ("terminal at : e=%f, i=%d , t=%f"%(e, i, target))
                     break
+                # last close in zone
+                if lastdown > 0:
+                    if lastdown < ob[i-1, 1]:
+                        if ob[i, 1] > max(down, start*1.01):
+                            end = ob[i, 1]
+                            print ("terminal series in at : e=%f, i=%d , t=%f"%(e, i, end))
+                            break
                 # get low bond 
                 if ob[i,3] < start * 0.99 and e > 0.1:
                     end = start * 0.99
@@ -117,6 +130,7 @@ def cal_profit(ob, pre, obj,lastobj):
                 break
             else:
                 print("un caught at: %d"%(i))
+            lastdown = down
         if ob[i, 3] < start:
             inloss += 1
         i += 1
@@ -163,7 +177,7 @@ def anylayzeOne(file):
         
             
     if count != 0:
-        print("abc sum:%f, count:%d, avg:%f, rate:%f"%(sum,count,sum/count, rate /count))
+        print("abc sum: %f, count:%d, avg:%f, rate:%f"%(sum,count,sum/count, rate /count))
     else:
         print("not operate")
     return sum,count

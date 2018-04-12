@@ -23,6 +23,7 @@ from __future__ import print_function
 from tensorflow.contrib.timeseries.python.timeseries import feature_keys
 from os import path
 import tempfile
+from tensorflow.python import debug as tf_debug
 import numpy
 import tensorflow as tf
 import evaluate
@@ -57,6 +58,7 @@ def loadCSVfile2(file, line):
         global  ori_values 
         ori_values = tmp[:,[2,3,4,5,6]].astype(numpy.float)
         values = tmp[0:line,[2,3,4,5,6]].astype(numpy.float)
+        # filter stop  part 
         last_date = tmp[-1, 1]
         last_day = datetime.datetime.strptime(last_date, '%Y-%m-%d')
         now = datetime.datetime.now()
@@ -67,8 +69,10 @@ def loadCSVfile2(file, line):
         print ("delta day is %s"%(delta.days))
         if diff_day < delta.days :
             return None
+        # if diff_day < delta.days :
+            # return None
         return {
-        feature_keys.TrainEvalFeatures.TIMES: times,
+            feature_keys.TrainEvalFeatures.TIMES: times,
             feature_keys.TrainEvalFeatures.VALUES: values
         }
     except Exception as e:
@@ -78,41 +82,51 @@ def loadCSVfile2(file, line):
 def multivariate_train_and_sample(
     csv_file_name, export_directory=None, training_steps=500, line=600, symbol = None):
   """Trains, evaluates, and exports a multivariate model."""
-  estimator = tf.contrib.timeseries.StructuralEnsembleRegressor(
-      periodicities=[], num_features=5)
-  weight = numpy.zeros(11)
-  weight [10] = symbol
-  data = loadCSVfile2(csv_file_name, line)
-  if None == data:
-      print("data get error")
-      return
-  reader = tf.contrib.timeseries.NumpyReader(data)
-  train_input_fn = tf.contrib.timeseries.RandomWindowInputFn(
-      # Larger window sizes generally produce a better covariance matrix.
-      reader, batch_size=8, window_size=128)
+#   estimator = tf.contrib.timeseries.StructuralEnsembleRegressor(
+#       periodicities=[], num_features=5)
+#   weight = numpy.zeros(11)
+#   weight [10] = symbol
+#   data = loadCSVfile2(csv_file_name, line)
+#   if None == data:
+#       print("data get error")
+#       return
+#   reader = tf.contrib.timeseries.NumpyReader(data)
+#   train_input_fn = tf.contrib.timeseries.RandomWindowInputFn(
+#       # Larger window sizes generally produce a better covariance matrix.
+#       reader, batch_size=8, window_size=128)
       
-  print("start train ")
-  estimator.train(input_fn=train_input_fn, steps=training_steps)
-  evaluation_input_fn = tf.contrib.timeseries.WholeDatasetInputFn(reader)
-  current_state = estimator.evaluate(input_fn=evaluation_input_fn, steps=1)
-  print("after eval ")
-  values = [current_state["observed"]]
-  times = [current_state[tf.contrib.timeseries.FilteringResults.TIMES]]
-  # Export the model so we can do iterative prediction and filtering without
-  # reloading model checkpoints.
-  if export_directory is None:
-    export_directory = tempfile.mkdtemp()
-  input_receiver_fn = estimator.build_raw_serving_input_receiver_fn()
-  export_location = estimator.export_savedmodel(
-      export_directory, input_receiver_fn)
+#   print("start train ")
+#   estimator.train(input_fn=train_input_fn, steps=training_steps)
+#   evaluation_input_fn = tf.contrib.timeseries.WholeDatasetInputFn(reader)
+#   current_state = estimator.evaluate(input_fn=evaluation_input_fn, steps=1)
+#   print("after eval ")
+#   values = [current_state["observed"]]
+#   times = [current_state[tf.contrib.timeseries.FilteringResults.TIMES]]
+#   # Export the model so we can do iterative prediction and filtering without
+#   # reloading model checkpoints.
+#   if export_directory is None:
+#     export_directory = tempfile.mkdtemp()
+#   input_receiver_fn = estimator.build_raw_serving_input_receiver_fn()
+#   export_location = estimator.export_savedmodel(
+#       export_directory, input_receiver_fn)
+  export_location = 'tmp_model/' + symbol + '/1523430304'
   with tf.Graph().as_default():
     numpy.random.seed(1)  # Make the example a bit more deterministic
+    filtering_features = loadCSVfile2(csv_file_name, line)
+    a = True
+    current_state = None
+    # print ('bbb')
     with tf.Session() as session:
       signatures = tf.saved_model.loader.load(
           session, [tf.saved_model.tag_constants.SERVING], export_location)
+      print (filtering_features)
+    #   print (filtering_features)
+      current_state = tf.contrib.timeseries.saved_model_utils.cold_start_filter(
+          signatures=signatures, session=session, features=filtering_features)
       global  ori_values 
       predicts = []
       for _ in range(_PRI_NUM):
+        print ('aaa')
         current_prediction = (
             tf.contrib.timeseries.saved_model_utils.predict_continuation(
                 continue_from=current_state, signatures=signatures,
@@ -121,22 +135,27 @@ def multivariate_train_and_sample(
             # Squeeze out the batch and series length dimensions (both 1).
             mean=numpy.squeeze(current_prediction["mean"], axis=[0, 1]),
             cov=numpy.squeeze(current_prediction["covariance"], axis=[0, 1]))
+        filtering_features = {
+        tf.contrib.timeseries.TrainEvalFeatures.TIMES: current_prediction[
+            tf.contrib.timeseries.FilteringResults.TIMES],
+        tf.contrib.timeseries.TrainEvalFeatures.VALUES: next_sample[
+            None, None, :]}
+        next_sample = numpy.random.multivariate_normal(
+            # Squeeze out the batch and series length dimensions (both 1).
+            mean=numpy.squeeze(current_prediction["mean"], axis=[0, 1]),
+            cov=numpy.squeeze(current_prediction["covariance"], axis=[0, 1]))
         # Update model state so that future predictions are conditional on the
         # value we just sampled.
-        filtering_features = {
-            tf.contrib.timeseries.TrainEvalFeatures.TIMES: current_prediction[
-                tf.contrib.timeseries.FilteringResults.TIMES],
-            tf.contrib.timeseries.TrainEvalFeatures.VALUES: next_sample[
-                None, None, :]}
         current_state = (
             tf.contrib.timeseries.saved_model_utils.filter_continuation(
                 continue_from=current_state,
                 session=session,
                 signatures=signatures,
                 features=filtering_features))
-        values.append(next_sample[None, None, :])
+        # values.append(next_sample[None, None, :])
         predicts.append(next_sample[None, None, :])
-        times.append(current_state["times"])
+        # times.append(current_state["times"])
+        print(current_state)
 
   pre = numpy.array(predicts)
   pre = numpy.squeeze(pre)
@@ -177,7 +196,7 @@ def main(unused_argv):
     data = file.read().split("\n",113)
     for symbol in data:
       if '' == symbol:
-          break
+        break
       print(symbol)
       l = 0
       abs_path =  path.join(_MODULE_PATH, 'data/' + symbol + ".csv" )
