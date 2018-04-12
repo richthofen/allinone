@@ -5,3 +5,5 @@ quant/src/profit.py
 quant/src/data
 quant/src/predict
 *log
+log*
+quant/src/result/

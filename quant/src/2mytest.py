@@ -61,7 +61,7 @@ def loadCSVfile2(file, line):
         return None
 
 def multivariate_train_and_sample(
-    csv_file_name, export_directory=None, training_steps=500, line=600, symbol = None):
+    csv_file_name, export_directory=None, training_steps=5, line=600, symbol = None):
   """Trains, evaluates, and exports a multivariate model."""
   estimator = tf.contrib.timeseries.StructuralEnsembleRegressor(
       periodicities=[], num_features=5)
@@ -91,11 +91,12 @@ def multivariate_train_and_sample(
   times = [current_state[tf.contrib.timeseries.FilteringResults.TIMES]]
   # Export the model so we can do iterative prediction and filtering without
   # reloading model checkpoints.
+  export_directory = "tmp_model/" + symbol
   if export_directory is None:
     export_directory = tempfile.mkdtemp()
   input_receiver_fn = estimator.build_raw_serving_input_receiver_fn()
   export_location = estimator.export_savedmodel(
-      export_directory, input_receiver_fn)
+      export_directory, input_receiver_fn, as_text=True)
   with tf.Graph().as_default():
     numpy.random.seed(1)  # Make the example a bit more deterministic
     with tf.Session() as session:
@@ -179,7 +180,7 @@ def main(unused_argv):
       with open( abs_path) as f:
         l = len(f.readlines())
         print(symbol)
-        for i in range(l - 100, l - 10, 5):
+        for i in range(l - 20, l - 10, 5):
           multivariate_train_and_sample(line = i, csv_file_name = abs_path, symbol = symbol)
 
 
