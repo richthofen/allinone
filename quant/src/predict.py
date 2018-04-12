@@ -64,17 +64,19 @@ def loadCSVfile2(file, line):
         if now.weekday() == 0:
             diff_day = 3
         delta = now - last_day
-        if diff_day > delta.days :
+        print ("delta day is %s"%(delta.days))
+        if diff_day < delta.days :
             return None
         return {
         feature_keys.TrainEvalFeatures.TIMES: times,
             feature_keys.TrainEvalFeatures.VALUES: values
         }
-    except:
+    except Exception as e:
+        print(e)
         return None
 
 def multivariate_train_and_sample(
-    csv_file_name, export_directory=None, training_steps=5, line=600, symbol = None):
+    csv_file_name, export_directory=None, training_steps=500, line=600, symbol = None):
   """Trains, evaluates, and exports a multivariate model."""
   estimator = tf.contrib.timeseries.StructuralEnsembleRegressor(
       periodicities=[], num_features=5)
@@ -141,9 +143,9 @@ def multivariate_train_and_sample(
   pre = pre[:,[0,1,2,3]]
   print (pre)
   ob = ori_values[line :,[0,1,2,3]].astype(numpy.float)
-  with open('tmp_data/' + symbol + 'ob' + '_stage' + str(line) + '.csv', 'wb') as f:
+  with open('tmp_data/' + symbol + 'ob' + '_stage' + str(line - 1) + '.csv', 'wb') as f:
     numpy.savetxt(f, ob)
-  with open('tmp_data/' + symbol + 'pre' + '_stage' + str(line) + '.csv', 'wb') as f:
+  with open('tmp_data/' + symbol + 'pre' + '_stage' + str(line - 1) + '.csv', 'wb') as f:
     numpy.savetxt(f, pre)
   return pre, ob
 
@@ -179,31 +181,31 @@ def main(unused_argv):
       print(symbol)
       l = 0
       abs_path =  path.join(_MODULE_PATH, 'data/' + symbol + ".csv" )
-    #   try:
-      with open( abs_path) as f:
-          l = len(f.readlines())
-          print(symbol)
-          line = l - 6
-          stage_ob_file = pathlib.Path('tmp_data/' + symbol + 'ob' + '_stage' + str(line) + '.csv')
-          stage_pre_file = pathlib.Path('tmp_data/' + symbol + 'pre' + '_stage' + str(line) + '.csv')
-          print(stage_ob_file)
-          ob, pre = readObPre(symbol, line)
-          print(pre)
-          if pre is None:
-              pre,ob = multivariate_train_and_sample(line = line, csv_file_name = abs_path, symbol = symbol)
-          obj = evaluate.mse(ob, pre)
-          print("obj ")
-        #   if obj.sum() < 2.5:
-          if True:
-              line = l - 1
-              _, pre = readObPre(symbol, line)
-              print (pre)
+      try:
+          with open( abs_path) as f:
+              l = len(f.readlines())
+              print(symbol)
+              line = l - 6
+              stage_ob_file = pathlib.Path('tmp_data/' + symbol + 'ob' + '_stage' + str(line) + '.csv')
+              stage_pre_file = pathlib.Path('tmp_data/' + symbol + 'pre' + '_stage' + str(line) + '.csv')
+              print(stage_ob_file)
+              ob, pre = readObPre(symbol, line)
+              print(pre)
               if pre is None:
-                  pre, _ = multivariate_train_and_sample(line = line, csv_file_name = abs_path, symbol = symbol)
-              close = ob[-1, 1]
-              calPredict(symbol, pre, close)
-    #   except Exception as e:
-        #   print(e)
+                  pre,ob = multivariate_train_and_sample(line = line, csv_file_name = abs_path, symbol = symbol)
+              obj = evaluate.mse(ob, pre)
+              print("obj ")
+            #   if obj.sum() < 2.5:
+              if True:
+                  line = l - 1
+                  _, pre = readObPre(symbol, line)
+                  print (pre)
+                  if pre is None:
+                      pre, _ = multivariate_train_and_sample(line = line, csv_file_name = abs_path, symbol = symbol)
+                  close = ob[-1, 1]
+                  calPredict(symbol, pre, close)
+      except Exception as e:
+          print(e)
   predict_path =  path.join(_MODULE_PATH, 'predict' )
   with open(predict_path, 'w') as f:
       global tofile
