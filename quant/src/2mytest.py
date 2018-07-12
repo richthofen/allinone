@@ -46,25 +46,31 @@ _MODULE_PATH = path.dirname(__file__)
 _PRI_NUM = 10
 # _DATA_FILE = path.join(_MODULE_PATH, "cc.log")
 ori_values = []
+import sys,traceback
 def loadCSVfile2(file, line):
     try:
-        tmp = numpy.loadtxt(file, dtype=numpy.str, delimiter=",", skiprows= 1)
+        tmp = numpy.loadtxt(file, dtype=numpy.str )
+        # tmp = numpy.loadtxt(file, dtype=numpy.str, delimiter=",", skiprows= 1)
+        print(file)
+        print (tmp.shape)
         times  = tmp[0:line,0].astype(numpy.float)
         global  ori_values 
-        ori_values = tmp[:,[2,3,4,5,6]].astype(numpy.float)
-        values = tmp[0:line,[2,3,4,5,6]].astype(numpy.float)
+        ori_values = tmp[:,[2,3,4,5,6,8]].astype(numpy.float)
+        values = tmp[0:line,[2,3,4,5,6,8]].astype(numpy.float)
         return {
         feature_keys.TrainEvalFeatures.TIMES: times,
             feature_keys.TrainEvalFeatures.VALUES: values
         }
-    except:
+    except: 
+        traceback.print_exception(*sys.exc_info())
+        sys.exit()
         return None
 
 def multivariate_train_and_sample(
-    csv_file_name, export_directory=None, training_steps=500, line=600, symbol = None):
+    csv_file_name, export_directory=None, training_steps=5, line=600, symbol = None):
   """Trains, evaluates, and exports a multivariate model."""
   estimator = tf.contrib.timeseries.StructuralEnsembleRegressor(
-      periodicities=[], num_features=5)
+      periodicities=[], num_features=6)
   weight = numpy.zeros(11)
   weight [10] = symbol
   data = loadCSVfile2(csv_file_name, line)
@@ -131,12 +137,12 @@ def multivariate_train_and_sample(
 
   pre = numpy.array(predicts)
   pre = numpy.squeeze(pre)
-  pre = pre[:,[0,1,2,3]]
+  pre = pre[:,[0,1,2,3,5]]
   close = ori_values[line,1] 
   line += 1
 #   weight[0] = line
 #   # 10 day mse
-  ob = ori_values[line :line + 10,[0,1,2,3]].astype(numpy.float)
+  ob = ori_values[line :line + 10,[0,1,2,3,5]].astype(numpy.float)
 #   mse10 = mse(ob,pre)
 #   weight[1] = mse10[9]
 #   # 10 day profit
@@ -176,11 +182,35 @@ def main(unused_argv):
       print(symbol)
       l = 0
       abs_path =  path.join(_MODULE_PATH, 'data/' + symbol + ".csv" )
-      with open( abs_path) as f:
-        l = len(f.readlines())
+    #   pre = numpy.loadtxt(abs_path, dtype=numpy.str)
+      pre = numpy.loadtxt(abs_path, dtype=numpy.str, delimiter=",", skiprows= 1)
+      l = pre.shape[0] 
+      thePoint = []
+      print(pre.shape)
+      for i in range(0, l):
+        batch = min(i + 10, l)
+        print (i, batch)
+        values = pre[i:batch,[2,3,4,5]].astype(numpy.float)
+        # print(values)
+        x = profit.findTime(values)
+        # print (x)
+        thePoint.append(pre[x[1] + i ,2])
+    #   print(thePoint)
+    #   print(len(thePoint))
+      thePoint = numpy.array(thePoint,dtype=numpy.str)
+    #   print (thePoint.shape)
+      pre = numpy.column_stack((pre, thePoint))
+      print(pre)
+      numpy.savetxt(abs_path + '1', pre, fmt='%s')
+    #   import sys
+    #   sys.exit()
+      with open(abs_path) as f:
+        lines = f.readlines()
+        l = len(lines)
+        ##  add column 
         print(symbol)
         for i in range(l - 100, l - 10, 5):
-          multivariate_train_and_sample(line = i, csv_file_name = abs_path, symbol = symbol)
+          multivariate_train_and_sample(line = i, csv_file_name = abs_path + '1', symbol = symbol)
 
 
 if __name__ == "__main__":
