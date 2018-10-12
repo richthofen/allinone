@@ -4,10 +4,7 @@ import math
 import os
 import json
 from os import path
-from datetime import datetime
-
 import send
-import sql
 _MODULE_PATH = path.dirname(__file__)
 import sys
 def findMax(arr):
@@ -26,7 +23,6 @@ def findfirstMin(arr, xmin, buy):
     ret = min(buy, count) 
     return ret
 def findTime(arr):
-    arr = numpy.array(arr).astype(float)
     print (arr)
     print (arr.shape)
     profit = 0
@@ -149,21 +145,31 @@ def cal_profit(ob, pre, obj,lastobj):
     deviation = om - start
     deviation = deviation / start
     return profit,maxProfit - profit,True
-# def checkOut(symbol, dt, start):
-def checkOut(symbol, dt = None, start=None):
-    hold = sql.get_holding_data(symbol)
-    print (hold)
-    start = float(hold[0,3])
-    dt = hold[0,1]
-    observe = sql.get_data_from_date(symbol, dt)
-    lastpre = sql.get_predict(symbol, dt)
-    print(lastpre)
-    # print()
-    ob = observe[:,[1,2,3,4,6]]
+def checkOut(symbol, line, start):
+    start = float(start)
+    abs_path =  path.join(_MODULE_PATH, 'result/' + symbol + '*')
+    print (abs_path)
+    flist = os.popen('ls ' + abs_path).readlines()
+    file = flist[-1].strip()
+    arr = file.split('-')
+    no = int(line) - 5
+    last = arr[0] + '-' + str(no) 
+    last = os.popen('ls ' + last + '*').readlines()[0].strip()
+    lastpre = numpy.loadtxt(last).astype('float64')
+    ob_path = path.join(_MODULE_PATH, 'data/' + symbol + '.csv1') 
+    # print(ob_path)
+    observe = numpy.loadtxt(ob_path, dtype=numpy.str )
+    # line = > index
+    line = int(line) - 1
+    print(observe.shape)
+    print(line)
+    ob = observe[line:,[2,3,4,5,8]]
     ob = ob.astype(numpy.float)
-    dt = observe[-1,0]
-    pre =  sql.get_predict(symbol, dt)[:,1:6].astype(float)
-    print (pre)
+    # print (ob)
+    # print (ob.shape)
+    # print (lastpre)
+    print(lastpre)
+    pre = numpy.loadtxt(file).astype('float64')
 
     profit = 0
     deviation = 0
@@ -236,33 +242,53 @@ def checkOut(symbol, dt = None, start=None):
             # return
             # break
         print("un caught at: %d"%(i))
+    # if ob[i, 3] < start:
+    #     inloss += 1
+    # i += 1
+    # print (numpy.append(ob,pre, axis=1))
+    # loss in 
+    # if inloss:
+    #     print ("loss day   %d    " % (inloss))
     print ("start %f, end %f"%(start, end))
     profit = end - start
     profit = profit / start
     profit = max(-0.03, profit)
     deviation = om - start
     deviation = deviation / start
+    # print (pre)
+    # print (lastpre)
+    # sum = 0
+    # ret = cal_profit(ob, pre, obj, lastobj)
     return None
 def checkIn(symbol):
-    ob_data = numpy.array(sql.get_data_lastest(symbol))
-    print (ob_data)
-    ob = ob_data[:,[1,2,3,4]].astype(float)
-    dt = ob_data[0,0]
-    lastpre = sql.get_predict_from_date(symbol, dt)
-    lastpre = lastpre[:,[1,2,3,4,6]]
-    if len(lastpre) == 0:
-        return None,None,None,None 
-    # dt = datetime.now().strftime("%Y-%m-%d")
-    dt = ob_data[-1,0] 
-    pre = sql.get_predict_from_date(symbol, dt)
-    pre = pre[:,[1,2,3,4,6]].astype(float)
+    abs_path =  path.join(_MODULE_PATH, 'result/' + symbol + '*')
+    print (abs_path)
+    flist = os.popen('ls ' + abs_path).readlines()
+    file = flist[-1].strip()
+    arr = file.split('-')
+    no = int(arr[1]) - 5
+    last = arr[0] + '-' + str(no) 
+    last = os.popen('ls ' + last + '*').readlines()[0].strip()
+    lastpre = numpy.loadtxt(last).astype('float64')
+    ob_path = path.join(_MODULE_PATH, 'data/' + symbol + '.csv1') 
+    # print(ob_path)
+    ob = numpy.loadtxt(ob_path, dtype=numpy.str )
+    ob = ob[no:,[2,3,4,5,8]]
+    ob = ob.astype(numpy.float)
+    print (ob)
+    print (ob.shape)
+    # print (lastpre)
+    print(lastpre)
+    pre = numpy.loadtxt(file).astype('float64')
+    # print (pre)
+    # print (lastpre)
+    # sum = 0
     lastobj = evaluate.mse(ob, lastpre)
     if lastobj.any():
-        if lastobj[:5].sum() < 2.5:
-        # if lastobj[:5].sum() < 2.5:
+        if lastobj[:5].sum() > 2.5:
             # print(lastobj)
             pass
-            return None,None,None,None
+            # return
     # print("%d -----"%(i))
     
     profit = 0
@@ -273,6 +299,7 @@ def checkIn(symbol):
     preProfit,buy,sell=findTime(pre)
     pm = pre[sell,2]
     preBuy = pre[buy, 3]
+    # buy = findfirstMin(ob, preBuy, buy)
     want = 999999
     close = ob[-1, 1] 
     if preBuy > close:
@@ -281,13 +308,9 @@ def checkIn(symbol):
         want = min(want , close * 0.99)
     start = min (want, ob[buy, 0]) 
     print (preProfit, buy, sell)
-    if preProfit < 0.03:
-    # if preProfit > 0.03:
-    # statement = """INSERT or ignore INTO hold (symbol, date, status, checkin, checkout, profit, original)  VALUES(?,?,?,?,?,?,?)""" 
-        data=[symbol, dt, "holding", buy, sell, preProfit, "ori", dt, dt]
-        data = numpy.array(data).reshape(1,9)
-        sql.add_hold(data)
-        return symbol, dt, dt, start
+    if preProfit > 0.03:
+        return symbol, str(arr[1]), str(arr[2]), start
+    # ret = cal_profit(ob, pre, obj, lastobj)
     return None,None,None,None
 import os.path
 if __name__ == "__main__":
@@ -300,35 +323,40 @@ if __name__ == "__main__":
         # record buy symbol
         # hold = numpy.loadtxt(in_path, dtype=numpy.str,  delimiter=" ", ndmin=2)
         sym_map = {}
-        in_map = {}
+        with open(in_path, 'r') as hold_file:
+            tmp =  hold_file.read()
+            # print(tmp)
+            if tmp != "":
+                sym_map = json.loads(tmp)
+        print (sym_map)
+        symbols = sym_map.keys()
+        # mark in symbol
+        # hint out 
         out_map = {}
-        holding = sql.get_holding()  
-        print (holding)
-        # symbols = [] 
-        symbols = [] if len(holding) == 0 else holding[:,0]
+        # hint in
+        in_map = {}
         xsum = 0
         xcount = 0
         for s in data:
             if '' != s:
+                # target_file = 'result/' + s + 'pre.csv'
+                # if os.path.isfile(target_file) :
                 print("%s -----abc"%(s))
                 # if s not in symbols:
                 if s  not in symbols:
-                    # try:
+                    print("%s -----abc"%(s))
                     symb, line, dt, start = checkIn(s)
-                    # if symb is not None:
+                    if symb is not None:
                         # with open(in_path, 'b') as f:
                             # print(symb + " " + line + " " + dt)
                             # f.write(("%s %s %s " %(symb, line, dt)).encode())
-                        # in_map[symb] = {"line":line, "dt":dt, "start": start}
-                        # sym_map[symb] = {"line":line, "dt":dt, "start": start}
-                    # except:
-                        # print ("%s predic error" % s)
+                        in_map[symb] = {"line":line, "dt":dt, "start": start}
+                        sym_map[symb] = {"line":line, "dt":dt, "start": start}
                 else:
                     # checkOut
-                    out = checkOut(s)
+                    out = checkOut(s, sym_map[s]["line"], sym_map[s]["start"])
                     if out is not None:
                         out_map[s] = {}
-            sys.exit()
         # send msg
         msg = "" 
         for i in in_map.keys():

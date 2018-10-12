@@ -16,7 +16,6 @@
 Fits a multivariate model, exports it, and visualizes the learned correlations
 by iteratively predicting and sampling from the predictions.
 """
-
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
@@ -29,6 +28,7 @@ import evaluate
 import profit
 import datetime
 import os
+import sql
 os.environ['TF_CPP_MIN_LOG_LEVEL']='0'
 try:
   import matplotlib  # pylint: disable=g-import-not-at-top
@@ -66,7 +66,107 @@ def loadCSVfile2(file, line):
         traceback.print_exception(*sys.exc_info())
         sys.exit()
         return None
+def loadNumpyArray(tmp, line):
+    try:
+        times  = numpy.arange(line)
+        # global  ori_values 
+        # ori_values = tmp[:,[1,2,3,4,5,6]].astype(numpy.float)
+        values = tmp[0:line,[1,2,3,4,5,6]].astype(numpy.float)
 
+        return {
+        feature_keys.TrainEvalFeatures.TIMES: times,
+            feature_keys.TrainEvalFeatures.VALUES: values
+        }
+    except: 
+        traceback.print_exception(*sys.exc_info())
+        sys.exit()
+        return None
+
+def multivariate_train_and_sample1(
+    data, export_directory=None, training_steps=1, line=600, symbol = None , dt = None):
+  # 如果预测过了 不做重复计算
+  predict = sql.get_predict(symbol, dt)
+  print (predict)
+  if 0 != len(predict) :
+     return
+
+  """Trains, evaluates, and exports a multivariate model."""
+  estimator = tf.contrib.timeseries.StructuralEnsembleRegressor(
+      periodicities=[], num_features=6)
+  weight = numpy.zeros(11)
+  weight [10] = symbol
+  data = loadNumpyArray(data, line)
+  if None == data:
+      print("data get error")
+      return
+  reader = tf.contrib.timeseries.NumpyReader(data)
+  train_input_fn = tf.contrib.timeseries.RandomWindowInputFn(
+      reader, batch_size=8, window_size=128)
+      
+  print("start train ")
+  estimator.train(input_fn=train_input_fn, steps=training_steps)
+  evaluation_input_fn = tf.contrib.timeseries.WholeDatasetInputFn(reader)
+  current_state = estimator.evaluate(input_fn=evaluation_input_fn, steps=1)
+  print("after eval ")
+  values = [current_state["observed"]]
+  times = [current_state[tf.contrib.timeseries.FilteringResults.TIMES]]
+  # Export the model so we can do iterative prediction and filtering without
+  # reloading model checkpoints.
+  if export_directory is None:
+    export_directory = tempfile.mkdtemp()
+  input_receiver_fn = estimator.build_raw_serving_input_receiver_fn()
+  export_location = estimator.export_savedmodel(
+      export_directory, input_receiver_fn)
+  with tf.Graph().as_default():
+    numpy.random.seed(1)  # Make the example a bit more deterministic
+    with tf.Session() as session:
+      signatures = tf.saved_model.loader.load(
+          session, [tf.saved_model.tag_constants.SERVING], export_location)
+      global  ori_values 
+      predicts = []
+      for _ in range(_PRI_NUM):
+        current_prediction = (
+            tf.contrib.timeseries.saved_model_utils.predict_continuation(
+                continue_from=current_state, signatures=signatures,
+                session=session, steps=1))
+        next_sample = numpy.random.multivariate_normal(
+            # Squeeze out the batch and series length dimensions (both 1).
+            mean=numpy.squeeze(current_prediction["mean"], axis=[0, 1]),
+            cov=numpy.squeeze(current_prediction["covariance"], axis=[0, 1]))
+        # Update model state so that future predictions are conditional on the
+        # value we just sampled.
+        filtering_features = {
+            tf.contrib.timeseries.TrainEvalFeatures.TIMES: current_prediction[
+                tf.contrib.timeseries.FilteringResults.TIMES],
+            tf.contrib.timeseries.TrainEvalFeatures.VALUES: next_sample[
+                None, None, :]}
+        current_state = (
+            tf.contrib.timeseries.saved_model_utils.filter_continuation(
+                continue_from=current_state,
+                session=session,
+                signatures=signatures,
+                features=filtering_features))
+        values.append(next_sample[None, None, :])
+        predicts.append(next_sample[None, None, :])
+        times.append(current_state["times"])
+
+  pre = numpy.array(predicts)
+  pre = numpy.squeeze(pre)
+  # pre = pre[:,[0,1,2,3,5]]
+  # close = ori_values[line,1] 
+#   line += 1
+  print ("line of ori %d" %(line))
+#   ob = ori_values[line :line + 10,[0,1,2,3,5]].astype(numpy.float)
+ 
+  numpy.set_printoptions(suppress=True)
+  numpy.set_numeric_ops
+  sql.add_predict(pre, symbol, dt)
+  # with open(abs_path, 'ab') as f:
+  #   #   tofile = numpy.append(ob, pre, axis=1)
+  #     numpy.savetxt(f,pre, fmt='%.2f')
+  all_observations = numpy.squeeze(numpy.concatenate(values, axis=1), axis=0)
+  all_times = numpy.squeeze(numpy.concatenate(times, axis=1), axis=0)
+  return all_times, all_observations
 def multivariate_train_and_sample(
     csv_file_name, export_directory=None, training_steps=1, line=600, symbol = None , dt = None):
 
@@ -167,45 +267,38 @@ def main(unused_argv):
       print(symbol)
       l = 0
       abs_path =  path.join(_MODULE_PATH, 'data/' + symbol + ".csv" )
-    #   pre = numpy.loadtxt(abs_path, dtype=numpy.str)
-      pre = numpy.loadtxt(abs_path, dtype=numpy.str, delimiter=",", skiprows= 1)
+      pre = sql.get_data(symbol)
+      pre = numpy.array(pre)
       l = pre.shape[0] 
-      thePoint = []
-      # print(pre.shape)
+      update = False
       for i in range(0, l):
         batch = min(i + 10, l)
         # print (i, batch)
-        values = pre[i:batch,[2,3,4,5]].astype(numpy.float)
-        # print(values)
-        x = profit.findTime(values)
-        # print (x)
-        thePoint.append(pre[x[1] + i ,2])
+        if float(pre[i,6]) == 0: 
+          values = pre[i:batch,[1,2,3,4]].astype(numpy.float)
+          x = profit.findTime(values)
+          pre[i,6] = pre[x[1] + i ,1]
+          # print (x)
+          update = True
+        # thePoint.append(pre[x[1] + i ,2])
     #   print(thePoint)
     #   print(len(thePoint))
-      thePoint = numpy.array(thePoint,dtype=numpy.str)
-    #   thePoint.append()
-    #   print (thePoint.shape)
-      pre = numpy.column_stack((pre, thePoint))
-    #   appd = numpy.zeros((10,9))
-    #   pre = numpy.concatenate([pre, appd])
+    # 更新best 字段
+      if True == update:
+        sql.add_tran_data(pre, symbol)
       # print(pre)
-      abs_path = abs_path + '1'
-      numpy.savetxt(abs_path, pre, fmt='%s')
-    #   import sys
-    #   sys.exit()abs_path
-      with open(abs_path) as f:
-        lines = f.readlines()
-        l = len(lines)
-        ##  add column 
-        print(symbol)
-        # pre_path =  path.join(_MODULE_PATH, 'result/' + symbol + "pre.csv" )
-        for i in range(l - 5, l + 1, 5):
-          # print (pre[i - 1,1])
-          print (i)
-          # sys.exit()
-          dt = str(pre[i - 1,1]).replace('/', '-')
-          multivariate_train_and_sample(line = i, csv_file_name = abs_path, symbol = symbol, dt=dt)
+      l = pre.shape[0]
+      ##  add column 
+      print(symbol)
+      for i in range(l - 4, l + 1, 5):
+        # print (pre[i - 1,1])
+        print (i)
+        # sys.exit()
+        dt = str(pre[i - 1,0])
+        multivariate_train_and_sample1(line = i, data = pre , symbol = symbol, dt=dt)
+        # multivariate_train_and_sample(line = i, csv_file_name = abs_path, symbol = symbol, dt=dt)
 
+      return
 
 if __name__ == "__main__":
   tf.app.run(main=main)

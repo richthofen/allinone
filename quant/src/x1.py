@@ -22,6 +22,7 @@ def norm(x):
     xmax = max(x)
     down = xmax - xmin
     biu = (x - xmin) / down
+
     return biu
 
 
@@ -48,7 +49,7 @@ def de_prio2(x, y):
 	else:
 		return 0
 
-
+import sql
 def cal(symbol):
     # df = ts.get_k_data(symbol, index=True)
     df = ts.get_k_data(symbol)
@@ -56,7 +57,10 @@ def cal(symbol):
     try:
         # print df
         #df.to_csv(symbol + ".csv" ,columns=['open','close','high','low','volume'])
-        df.to_csv("data/" + symbol + ".csv")
+        # df.to_csv("data/" + symbol + ".csv")
+        print("---- -- ")
+        sql.add_data(df.values)
+        return ""
         op = df['open'].values
         dates = df['date'].values
         lows = df['low'].values
@@ -96,6 +100,7 @@ def cal(symbol):
             return "%s op %s " % (symbol, op[-1])
         return ""
     except Exception as ex:
+        print (ex)
         return ""
         # return " ex %s " % (symbol)
 
@@ -103,7 +108,7 @@ def cal(symbol):
 # print all['code'].values
 
 with open("s.log") as file:
-    data = file.read().split("\n",113)
+    data = file.read().split("\n")
     # print data[0:-1]
     msg = ""
     # print ts.get_k_data('600000')
