@@ -83,7 +83,7 @@ def loadNumpyArray(tmp, line):
         return None
 
 def multivariate_train_and_sample1(
-    data, export_directory=None, training_steps=1, line=600, symbol = None , dt = None):
+    data, export_directory=None, training_steps=500, line=600, symbol = None , dt = None):
   # 如果预测过了 不做重复计算
   predict = sql.get_predict(symbol, dt)
   print (predict)
@@ -288,17 +288,19 @@ def main(unused_argv):
         sql.add_tran_data(pre, symbol)
       # print(pre)
       l = pre.shape[0]
+      print (pre.shape)
       ##  add column 
       print(symbol)
-      for i in range(l - 4, l + 1, 5):
-        # print (pre[i - 1,1])
+      for i in range(l - 5, l + 1 , 5):
+        print (pre[i - 1,1])
         print (i)
+        # continue
         # sys.exit()
         dt = str(pre[i - 1,0])
         multivariate_train_and_sample1(line = i, data = pre , symbol = symbol, dt=dt)
         # multivariate_train_and_sample(line = i, csv_file_name = abs_path, symbol = symbol, dt=dt)
 
-      return
+    #   return
 
 if __name__ == "__main__":
   tf.app.run(main=main)

@@ -158,7 +158,7 @@ def checkOut(symbol, dt = None, start=None):
     observe = sql.get_data_from_date(symbol, dt)
     lastpre = sql.get_predict(symbol, dt)
     print(lastpre)
-    # print()
+    print(observe)
     ob = observe[:,[1,2,3,4,6]]
     ob = ob.astype(numpy.float)
     dt = observe[-1,0]
@@ -199,7 +199,7 @@ def checkOut(symbol, dt = None, start=None):
         else:
             print ("testl at : e=%f, i=%d"%(pm,i))
             # pass
-        return symbol
+        # return symbol
     else:
         up = 0
         down = 0
@@ -242,26 +242,41 @@ def checkOut(symbol, dt = None, start=None):
     profit = max(-0.03, profit)
     deviation = om - start
     deviation = deviation / start
+    
+    status = "sold"
+    sql.update_hold_end(status, end, profit, dt, hold[0,1], symbol) 
     return None
 def checkIn(symbol):
     ob_data = numpy.array(sql.get_data_lastest(symbol))
     print (ob_data)
-    ob = ob_data[:,[1,2,3,4]].astype(float)
+    if ob_data.shape[0] == 0 :
+        print ("not observe data")
+        return None,None,None,None 
     dt = ob_data[0,0]
+    ob = ob_data[1:,[1,2,3,4]].astype(float)
     lastpre = sql.get_predict_from_date(symbol, dt)
+    if lastpre.shape[0] == 0 :
+        return None,None,None,None 
     lastpre = lastpre[:,[1,2,3,4,6]]
     if len(lastpre) == 0:
         return None,None,None,None 
     # dt = datetime.now().strftime("%Y-%m-%d")
     dt = ob_data[-1,0] 
     pre = sql.get_predict_from_date(symbol, dt)
+    print (pre)
+    if len(pre) == 0:
+        print("no predict data")
+        return None,None,None,None 
+
+
     pre = pre[:,[1,2,3,4,6]].astype(float)
     lastobj = evaluate.mse(ob, lastpre)
     if lastobj.any():
-        if lastobj[:5].sum() < 2.5:
+        lo = lastobj[:5].sum()
+        if lo > 2.5:
         # if lastobj[:5].sum() < 2.5:
-            # print(lastobj)
-            pass
+            print("last obj gt 2.5 %f" % lo)
+            # pass
             return None,None,None,None
     # print("%d -----"%(i))
     
@@ -279,12 +294,15 @@ def checkIn(symbol):
         want = min(want, close * 0.99)
     if pre[buy, 4] > close:
         want = min(want , close * 0.99)
-    start = min (want, ob[buy, 0]) 
+    start = min (want, preBuy) 
     print (preProfit, buy, sell)
-    if preProfit < 0.03:
-    # if preProfit > 0.03:
+    if buy > 1:
+        print ("not today")
+        return None, None, None, None
+    # if preProfit < 0.03:
+    if preProfit > 0.03:
     # statement = """INSERT or ignore INTO hold (symbol, date, status, checkin, checkout, profit, original)  VALUES(?,?,?,?,?,?,?)""" 
-        data=[symbol, dt, "holding", buy, sell, preProfit, "ori", dt, dt]
+        data=[symbol, dt, "holding", start, 0, preProfit, "ori", dt, sell]
         data = numpy.array(data).reshape(1,9)
         sql.add_hold(data)
         return symbol, dt, dt, start
@@ -315,20 +333,10 @@ if __name__ == "__main__":
                 if s  not in symbols:
                     # try:
                     symb, line, dt, start = checkIn(s)
-                    # if symb is not None:
-                        # with open(in_path, 'b') as f:
-                            # print(symb + " " + line + " " + dt)
-                            # f.write(("%s %s %s " %(symb, line, dt)).encode())
-                        # in_map[symb] = {"line":line, "dt":dt, "start": start}
-                        # sym_map[symb] = {"line":line, "dt":dt, "start": start}
-                    # except:
-                        # print ("%s predic error" % s)
                 else:
                     # checkOut
                     out = checkOut(s)
-                    if out is not None:
-                        out_map[s] = {}
-            sys.exit()
+            # sys.exit()
         # send msg
         msg = "" 
         for i in in_map.keys():

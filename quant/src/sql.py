@@ -92,14 +92,14 @@ def get_data(symbol):
     return ret
 def get_data_from_date(symbol, dt):
     c = conn.cursor()
-    statement = """select * from data%s where date>'%s' order by date desc""" % (symbol, dt)
+    statement = """select * from data%s where date>='%s' order by date desc""" % (symbol, dt)
     ret = c.execute(statement).fetchall()
     ret = numpy.array(ret)
     return ret
 def get_data_lastest(symbol):
     c = conn.cursor()
     # statement = """select * from data%s  order by date limit -1, 10""" % (symbol)
-    statement = """select * from ( select * from data%s  order by date desc  limit 5 ) order by date""" % (symbol)
+    statement = """select * from ( select * from data%s  order by date desc  limit 6 ) order by date""" % (symbol)
     ret = c.execute(statement).fetchall()
     ret = numpy.array(ret)
     return ret
@@ -111,7 +111,7 @@ def get_predict(symbol, dt):
     return ret
 def get_predict_from_date(symbol, dt):
     c = conn.cursor()
-    statement = """select * from predict%s where date>'%s' """ % (symbol, dt)
+    statement = """select * from predict%s where date='%s' """ % (symbol, dt)
     print(statement)
     ret = c.execute(statement).fetchall()
     ret = numpy.array(ret)
@@ -164,9 +164,10 @@ def add_hold(data):
     statement = """INSERT or ignore INTO hold (symbol, date, status, checkin, checkout, profit, original, indate, outdate)  VALUES(?,?,?,?,?,?,?,?,?)""" 
     conn.executemany(statement, data)
     conn.commit()
-def update_hold(data):
-    statement = """update hold set """ 
-    conn.executemany(statement, data)
+def update_hold_end(status, checkout, profit, outdate, dt, symbol):
+    statement = """update hold set status='%s', checkout=%f, profit=%f, outdate='%s'  where date = '%s' and symbol='%s'"""  % (status, checkout, profit, outdate, dt, symbol)
+    print (statement)
+    conn.execute(statement)
     conn.commit()
 
 if __name__ == "__main__":
