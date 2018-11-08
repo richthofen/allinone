@@ -54,20 +54,22 @@ def loadCSVfile2(file, line):
         tmp = numpy.loadtxt(file, dtype=numpy.str, delimiter=",", skiprows= 1)
         times  = tmp[0:line,0].astype(numpy.float)
         global  ori_values 
-        ori_values = tmp[:,[2,3,4,5,6]].astype(numpy.float)
-        values = tmp[0:line,[2,3,4,5,6]].astype(numpy.float)
+        ori_values = tmp[:,[2,3,4,5,6,8]].astype(numpy.float)
+        values = tmp[0:line,[2,3,4,5,6,8]].astype(numpy.float)
         return {
         feature_keys.TrainEvalFeatures.TIMES: times,
             feature_keys.TrainEvalFeatures.VALUES: values
         }
-    except:
+    except: 
+        traceback.print_exception(*sys.exc_info())
+        sys.exit()
         return None
 
 def multivariate_train_and_sample(
     csv_file_name, export_directory=None, training_steps=5, line=600, symbol = None):
   """Trains, evaluates, and exports a multivariate model."""
   estimator = tf.contrib.timeseries.StructuralEnsembleRegressor(
-      periodicities=[], num_features=5)
+      periodicities=[], num_features=6)
   weight = numpy.zeros(11)
   weight [10] = symbol
   data = loadCSVfile2(csv_file_name, line)
@@ -128,9 +130,12 @@ def multivariate_train_and_sample(
 
   pre = numpy.array(predicts)
   pre = numpy.squeeze(pre)
-  pre = pre[:,[0,1,2,3]]
+  pre = pre[:,[0,1,2,3,5]]
+  close = ori_values[line,1] 
+  line += 1
   print (pre)
-  ob = ori_values[line :,[0,1,2,3]].astype(numpy.float)
+
+  ob = ori_values[line :,[0,1,2,3,5]].astype(numpy.float)
   with open('result/' + symbol + 'stage' + str(line) + '.csv', 'wb') as f:
     sss = numpy.append(ob, pre, axis=1)
     numpy.savetxt(f,sss)
@@ -161,6 +166,24 @@ def main(unused_argv):
       print(symbol)
       l = 0
       abs_path =  path.join(_MODULE_PATH, 'data/' + symbol + ".csv" )
+      pre = numpy.loadtxt(abs_path, dtype=numpy.str, delimiter=",", skiprows= 1)
+      l = pre.shape[0] 
+      thePoint = []
+      for i in range(0, l):
+        batch = min(i + 10, l)
+        print (i, batch)
+        values = pre[i:batch,[2,3,4,5]].astype(numpy.float)
+        # print(values)
+        x = profit.findTime(values)
+        # print (x)
+        thePoint.append(pre[x[1] + i ,2])
+    #   print(thePoint)
+    #   print(len(thePoint))
+      thePoint = numpy.array(thePoint,dtype=numpy.str)
+    #   print (thePoint.shape)
+      pre = numpy.column_stack((pre, thePoint))
+      print(pre)
+      numpy.savetxt(abs_path + '1', pre, fmt='%s')
     #   try:
     with open( abs_path) as f:
         l = len(f.readlines())
@@ -189,7 +212,7 @@ def main(unused_argv):
             else:
                 pre,ob = multivariate_train_and_sample(line = line, csv_file_name = abs_path, symbol = symbol)
             close = ob[-1, 1]
-            calPredict(pre, close)
+            # calPredict(pre, close)
     #   except Exception as e:
         #   print(e)
 

@@ -174,7 +174,7 @@ if __name__ == "__main__":
         xcount = 0
         for s in data:
             if '' != s:
-                target_file = 'result/' + s + 'compare.csv'
+                target_file = 'result/' + s + 'pre.csv'
                 if os.path.isfile(target_file) :
                     print("%s -----abc"%(s))
                     a,b = anylayzeOne(target_file)
