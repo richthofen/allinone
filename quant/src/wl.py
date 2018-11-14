@@ -27,8 +27,8 @@ def findfirstMin(arr, xmin, buy):
     return ret
 def findTime(arr):
     arr = numpy.array(arr).astype(float)
-    print (arr)
-    print (arr.shape)
+    # print (arr)
+    # print (arr.shape)
     profit = 0
     buy = 0
     sell = 0
@@ -157,8 +157,8 @@ def checkOut(symbol, dt = None, start=None):
     dt = hold[0,1]
     observe = sql.get_data_from_date(symbol, dt)
     lastpre = sql.get_predict(symbol, dt)
-    print(lastpre)
-    print(observe)
+    # print(lastpre)
+    # print(observe)
     ob = observe[:,[1,2,3,4,6]]
     ob = ob.astype(numpy.float)
     dt = observe[-1,0]
@@ -248,7 +248,7 @@ def checkOut(symbol, dt = None, start=None):
     return None
 def checkIn(symbol):
     ob_data = numpy.array(sql.get_data_lastest(symbol))
-    print (ob_data)
+    # print (ob_data)
     if ob_data.shape[0] == 0 :
         print ("not observe data")
         return None,None,None,None 
@@ -263,7 +263,7 @@ def checkIn(symbol):
     # dt = datetime.now().strftime("%Y-%m-%d")
     dt = ob_data[-1,0] 
     pre = sql.get_predict_from_date(symbol, dt)
-    print (pre)
+    # print (pre)
     if len(pre) == 0:
         print("no predict data")
         return None,None,None,None 
@@ -321,11 +321,13 @@ if __name__ == "__main__":
         in_map = {}
         out_map = {}
         holding = sql.get_holding()  
+        print ("holding")
         print (holding)
         # symbols = [] 
         symbols = [] if len(holding) == 0 else holding[:,0]
         xsum = 0
         xcount = 0
+        msg = "" 
         for s in data:
             if '' != s:
                 print("%s -----abc"%(s))
@@ -333,21 +335,20 @@ if __name__ == "__main__":
                 if s  not in symbols:
                     # try:
                     symb, line, dt, start = checkIn(s)
+                    if symb is not None: 
+                      msg += symb + " " + str(start) + "\n"
                 else:
                     # checkOut
                     out = checkOut(s)
+                    if out is not None:
+                      msg += symb + " \n"
             # sys.exit()
         # send msg
-        msg = "" 
         for i in in_map.keys():
             msg += i + " " + str(in_map[i]["start"]) + " \n"
         for i in out_map.keys():
             msg += "out " + i + " \n"
         print (msg) 
-        if msg != "":
-            send.send_msg(msg)
-        # save info 
-        with open(in_path, 'w') as hold_file:
-            dump = json.dumps(sym_map)
-            print(dump)
-            hold_file.write(dump)
+        # if msg != "":
+            # send.send_msg(msg)
+        
