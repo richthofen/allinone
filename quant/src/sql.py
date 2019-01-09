@@ -112,7 +112,7 @@ def get_predict(symbol, dt):
 def get_predict_from_date(symbol, dt):
     c = conn.cursor()
     statement = """select * from predict%s where date='%s' """ % (symbol, dt)
-    print(statement)
+    # print(statement)
     ret = c.execute(statement).fetchall()
     ret = numpy.array(ret)
     return ret
