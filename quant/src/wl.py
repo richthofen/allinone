@@ -302,7 +302,7 @@ def checkIn(symbol):
     # if preProfit < 0.03:
     if preProfit > 0.03:
     # statement = """INSERT or ignore INTO hold (symbol, date, status, checkin, checkout, profit, original)  VALUES(?,?,?,?,?,?,?)""" 
-        data=[symbol, dt, "holding", start, 0, preProfit, "ori", dt, sell]
+        data=[symbol, dt, "pre", start, 0, preProfit, "ori", dt, sell]
         data = numpy.array(data).reshape(1,9)
         sql.add_hold(data)
         return symbol, dt, dt, start
@@ -352,3 +352,5 @@ if __name__ == "__main__":
         # if msg != "":
             # send.send_msg(msg)
         
+    # 更新 last 5 day pre
+    
