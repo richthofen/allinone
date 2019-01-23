@@ -350,14 +350,7 @@ if __name__ == "__main__":
             msg += "out " + i + " \n"
         print ("hh") 
         print (msg) 
-<<<<<<< HEAD
         if msg != "":
             send.send_msg(msg)
         
-=======
-        # if msg != "":
-            # send.send_msg(msg)
-        
-    # 更新 last 5 day pre
     
->>>>>>> 11123dbddae21c6c90322f7841ae2524abca37a5
