@@ -341,14 +341,15 @@ if __name__ == "__main__":
                     # checkOut
                     out = checkOut(s)
                     if out is not None:
-                      msg += symb + " \n"
+                      msg += s + " \n"
             # sys.exit()
         # send msg
         for i in in_map.keys():
             msg += i + " " + str(in_map[i]["start"]) + " \n"
         for i in out_map.keys():
             msg += "out " + i + " \n"
+        print ("hh") 
         print (msg) 
-        # if msg != "":
-            # send.send_msg(msg)
+        if msg != "":
+            send.send_msg(msg)
         
