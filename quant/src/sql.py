@@ -67,6 +67,10 @@ def initDB(symbols = []):
         # status 0. holding,
         #  1. T, T-upper, T-loss
         #  2. failed 
+        #  3. pre 预测
+        #  4. sold
+        #  5. selling
+        
     create_hold_sql = """create table IF NOT EXISTS hold (
         symbol VARCHAR(6),
         date DATE,
@@ -146,13 +150,24 @@ def add_data(data):
     statement = """INSERT or ignore INTO data%s (date, open, close,high, low, volume)  VALUES(?,?,?,?,?,?)""" % symbol
     conn.executemany(statement, data)
     conn.commit()
-def get_holding_data(symbol):
+def get_hold_data(status):
+    c = conn.cursor()
+    statement = """select * from hold where status='%s'""" % status
+    print(statement)
+    ret = c.execute(statement).fetchall()
+    ret = numpy.array(ret)
+    return ret
+def get_hold_holding_data(symbol):
     c = conn.cursor()
     statement = """select * from hold where status='%s' and symbol='%s'""" % (str("holding"), symbol)
     print(statement)
     ret = c.execute(statement).fetchall()
     ret = numpy.array(ret)
     return ret
+def get_hold_pre_data():
+    return get_hold_data( "pre")
+def get_hold_holding_data():
+    return get_hold_data( "holding")
 def get_holding():
     c = conn.cursor()
     statement = """select * from hold where status='%s'""" % str("holding")
@@ -169,6 +184,12 @@ def update_hold_end(status, checkout, profit, outdate, dt, symbol):
     print (statement)
     conn.execute(statement)
     conn.commit()
+def update_hold_data( dt, symbol, status="pre", checkout=0, profit=0, outdate=""):
+    statement = """update hold set status='%s', checkout=%f, profit=%f, outdate='%s'  where date = '%s' and symbol='%s'"""  % (status, checkout, profit, outdate, dt, symbol)
+    print (statement)
+    conn.execute(statement)
+    conn.commit()
+
 
 if __name__ == "__main__":
     abs_path =  path.join(_MODULE_PATH, 'back')
