@@ -166,7 +166,7 @@ def get_hold_holding_data(symbol):
     return ret
 def get_hold_pre_data():
     return get_hold_data( "pre")
-def get_hold_holding_data():
+def get_hold_all_holding_data():
     return get_hold_data( "holding")
 def get_holding():
     c = conn.cursor()

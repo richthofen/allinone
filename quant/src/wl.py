@@ -151,7 +151,7 @@ def cal_profit(ob, pre, obj,lastobj):
     return profit,maxProfit - profit,True
 # def checkOut(symbol, dt, start):
 def checkOut(symbol, dt = None, start=None):
-    hold = sql.get_holding_data(symbol)
+    hold = sql.get_hold_holding_data(symbol)
     print (hold)
     start = float(hold[0,3])
     dt = hold[0,1]
