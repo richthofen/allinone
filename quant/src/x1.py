@@ -13,6 +13,13 @@ import sys
 import send
 msg = ""
 
+#abf236e4493d991a1492271e8289f5952301750aa7f7345c9a6abd9e
+#方式一ts.set_token(‘你刚才复制的token填在这里‘)
+# #这种方式设置token我们会吧token保存到本地，所以我们在使用的时候只需设置一次，失效之后，我们可以替换为新的token
+# #方式二pro = ts.pro_api()pro = ts.pro_api(‘你刚才复制的token填在这里‘)这种在初始化接口的时候设置token
+#设置过token之后，就是使用tushare获取数据了，我们就做一个简单的例子
+
+pro = ts.pro_api('abf236e4493d991a1492271e8289f5952301750aa7f7345c9a6abd9e')
 
 def norm(x):
     xmin = min(x)
@@ -50,16 +57,19 @@ def de_prio2(x, y):
 		return 0
 
 import sql
+allSymbol = pro.stock_basic(exchange='', list_status='L', fields='ts_code,symbol,name,area,industry,list_date')
+
 def cal(symbol):
-    # df = ts.get_k_data(symbol, index=True)
-    df = ts.get_k_data(symbol)
-    
+    ts_code=allSymbol.query('symbol==@symbol')['ts_code'].values[0]
+    df = pro.daily(ts_code=ts_code)
     try:
-        # print df
-        #df.to_csv(symbol + ".csv" ,columns=['open','close','high','low','volume'])
-        # df.to_csv("data/" + symbol + ".csv")
-        print("---- -- ")
-        sql.add_data(df.values)
+        data=df[:][['trade_date',   'open',   'close','high',    'low',     'vol']]
+        data = data.values
+        # 转换日期 20190415 >> 2019-04-19
+        for i in range(len(data)):
+            date = data[i][0]
+            data[i][0] = date[0:4] + "-" + date[4:6] + "-" + date[6:8] 
+        sql.add_data(data, symbol)
         return ""
         op = df['open'].values
         dates = df['date'].values
@@ -112,13 +122,14 @@ with open("s.log") as file:
     # print data[0:-1]
     msg = ""
     # print ts.get_k_data('600000')
-    for symbol in data[0:-1]:
+    for symbol in data[:]:
         print (symbol)
         ret = cal(symbol)
         if('' != ret.strip()):
             if('' != msg.strip()):
                 ret = "\n" + ret
         msg += ret
+        
     # msg = "22"
     # print "222"
     print (msg)

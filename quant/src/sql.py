@@ -143,13 +143,22 @@ def add_predict(data, symbol, dt):
     statement = """INSERT or ignore INTO predict%s (date, open, close,high, low, volume, best)  VALUES(?,?,?,?,?,?,?)""" % symbol
     conn.executemany(statement, data)
     conn.commit()
-def add_data(data):
+def add_data(data, symbol=""):
     # conn = sqlite3.connect("sqlite.db")  #创建sqlite.db数据库
-    symbol = data[0][6]
+    if symbol == "":
+        symbol = data[0][6]
     data = data[:,[0,1,2,3,4,5]]
-    statement = """INSERT or ignore INTO data%s (date, open, close,high, low, volume)  VALUES(?,?,?,?,?,?)""" % symbol
+    statement = """INSERT or ignore INTO data%s (date, open, close,high, low, volume)  VALUES(?,?,?,?,?,?);
+                    """ % symbol
+    print(statement)
     conn.executemany(statement, data)
     conn.commit()
+
+    # c = conn.cursor()
+    # adj_date =  """update data%s set date=substr (date,0,5) || "-" || substr(date,5,2) ||"-" || substr(date, 7,2);
+    #                 """ % symbol
+    # c.execute(adj_date)
+
 def get_hold_data(status):
     c = conn.cursor()
     statement = """select * from hold where status='%s'""" % status
