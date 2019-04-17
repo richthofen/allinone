@@ -5,11 +5,17 @@ import os
 import json
 from os import path
 from datetime import datetime
-
+import requests as re
+import tushare as ts
 import send
 import sql
 _MODULE_PATH = path.dirname(__file__)
 import sys
+
+
+pro = ts.pro_api('abf236e4493d991a1492271e8289f5952301750aa7f7345c9a6abd9e')
+allSymbol = pro.stock_basic(exchange='', list_status='L', fields='ts_code,symbol,name,area,industry,list_date')
+
 def findMax(arr):
     ret = -1
     count = 0
@@ -149,13 +155,36 @@ def cal_profit(ob, pre, obj,lastobj):
     deviation = om - start
     deviation = deviation / start
     return profit,maxProfit - profit,True
+def get_real_data(symbol):
+    area=allSymbol.query('symbol==@symbol')['ts_code']
+    if 0 == area.shape[0]:
+        return None
+    area = area.values[0] 
+    sina_symbol=""
+    if "SZ" == area[7:9]:
+        sina_symbol= "sz" + symbol
+    else:
+        sina_symbol= "sh" + symbol
+    res=re.get('http://hq.sinajs.cn/?format=text&list=' + sina_symbol)
+    ret = res.text.split(',')
+    ob_data = ret[30:31]
+    ob_data.extend(ret[1:2])
+    ob_data.extend(ret[3:6])
+    ob_data = numpy.array([ob_data])
+    return ob_data
 # def checkOut(symbol, dt, start):
 def checkOut(symbol, dt = None, start=None):
     hold = sql.get_hold_holding_data(symbol)
     print (hold)
     start = float(hold[0,3])
     dt = hold[0,1]
-    observe = sql.get_data_from_date(symbol, dt)
+    observe = get_real_data(symbol)
+    if observe is None :
+        print ("not observe data")
+        return None,None,None,None 
+    if observe.shape[0] == 0 :
+        print ("not observe data")
+        return None,None,None,None 
     lastpre = sql.get_predict(symbol, dt)
     # print(lastpre)
     # print(observe)
@@ -246,9 +275,14 @@ def checkOut(symbol, dt = None, start=None):
     status = "sold"
     sql.update_hold_end(status, end, profit, dt, hold[0,1], symbol) 
     return None
+
 def checkIn(symbol):
-    ob_data = numpy.array(sql.get_data_lastest(symbol))
+    ob_data = get_real_data(symbol)
+    #ob_data = numpy.array(sql.get_data_lastest(symbol))
     # print (ob_data)
+    if ob_data is None :
+        print ("not observe data")
+        return None,None,None,None 
     if ob_data.shape[0] == 0 :
         print ("not observe data")
         return None,None,None,None 
