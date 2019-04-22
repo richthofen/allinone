@@ -178,7 +178,8 @@ def checkOut(symbol, dt = None, start=None):
     print (hold)
     start = float(hold[0,3])
     dt = hold[0,1]
-    observe = get_real_data(symbol)
+    #observe = get_real_data(symbol)
+    observe = sql.get_data_from_date(symbol, dt)
     if observe is None :
         print ("not observe data")
         return None,None,None,None 
@@ -191,8 +192,10 @@ def checkOut(symbol, dt = None, start=None):
     ob = observe[:,[1,2,3,4,6]]
     ob = ob.astype(numpy.float)
     dt = observe[-1,0]
-    pre =  sql.get_predict(symbol, dt)[:,1:6].astype(float)
+    pre =  sql.get_predict(symbol, dt)
+    print (dt)
     print (pre)
+    pre = pre[:,1:6].astype(float)
 
     profit = 0
     deviation = 0
@@ -271,15 +274,15 @@ def checkOut(symbol, dt = None, start=None):
     profit = max(-0.03, profit)
     deviation = om - start
     deviation = deviation / start
+    status = hold[0,2] 
+    sql.update_hold_checkout(status, end, profit, dt, hold[0,1], symbol) 
     
-    status = "sold"
-    sql.update_hold_end(status, end, profit, dt, hold[0,1], symbol) 
     return None
 
 def checkIn(symbol):
-    ob_data = get_real_data(symbol)
-    #ob_data = numpy.array(sql.get_data_lastest(symbol))
-    # print (ob_data)
+    #ob_data = get_real_data(symbol)
+    ob_data = numpy.array(sql.get_data_lastest(symbol))
+    print (ob_data)
     if ob_data is None :
         print ("not observe data")
         return None,None,None,None 
@@ -316,6 +319,7 @@ def checkIn(symbol):
     
     profit = 0
     deviation = 0
+    print (ob)
     end = ob[-1,1]
     om = numpy.max(ob[1:,2])
     pday = 0.12 / 250
@@ -372,9 +376,10 @@ if __name__ == "__main__":
                     if symb is not None: 
                       msg += symb + " " + str(start) + "\n"
                 else:
+                    continue
                     # checkOut
                     out = checkOut(s)
-                    if out is not None:
+                    if out and out is not None:
                       msg += s + " \n"
             # sys.exit()
         # send msg
