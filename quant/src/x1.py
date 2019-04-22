@@ -9,10 +9,10 @@ import talib
 import numpy as np
 import matplotlib.pyplot as plt
 import tushare as ts
+import requests as re
 import sys
 import send
 msg = ""
-
 #abf236e4493d991a1492271e8289f5952301750aa7f7345c9a6abd9e
 #方式一ts.set_token(‘你刚才复制的token填在这里‘)
 # #这种方式设置token我们会吧token保存到本地，所以我们在使用的时候只需设置一次，失效之后，我们可以替换为新的token
@@ -59,6 +59,25 @@ def de_prio2(x, y):
 import sql
 allSymbol = pro.stock_basic(exchange='', list_status='L', fields='ts_code,symbol,name,area,industry,list_date')
 
+def get_real_data(symbol):
+    area=allSymbol.query('symbol==@symbol')['ts_code']
+    if 0 == area.shape[0]:
+        return None
+    area = area.values[0] 
+    sina_symbol=""
+    if "SZ" == area[7:9]:
+        sina_symbol= "sz" + symbol
+    else:
+        sina_symbol= "sh" + symbol
+    res=re.get('http://hq.sinajs.cn/?format=text&list=' + sina_symbol)
+    ret = res.text.split(',')
+    ob_data = ret[30:31]
+    ob_data.extend(ret[1:2])
+    ob_data.extend(ret[3:6])
+    ob_data.extend(ret[8:9])
+    ob_data.extend(['0'])
+    ob_data = np.array([ob_data])
+    return ob_data
 def cal(symbol):
     ts_code=allSymbol.query('symbol==@symbol')['ts_code'].values[0]
     df = pro.daily(ts_code=ts_code)
@@ -70,7 +89,10 @@ def cal(symbol):
             date = data[i][0]
             data[i][0] = date[0:4] + "-" + date[4:6] + "-" + date[6:8] 
         sql.add_data(data, symbol)
+        data = get_real_data(symbol)
+        sql.add_day_data(data, symbol)
         return ""
+        ###   skip 
         op = df['open'].values
         dates = df['date'].values
         lows = df['low'].values

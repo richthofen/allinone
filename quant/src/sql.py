@@ -134,6 +134,11 @@ def add_tran_data(data, symbol):
     statement = """INSERT or ignore INTO data%s VALUES(?,?,?,?,?,?,?)""" % symbol
     conn.executemany(statement, data)
     conn.commit()
+def add_day_data(data, symbol):
+    conn = sqlite3.connect("sqlite.db")  #创建sqlite.db数据库
+    statement = """insert or replace into data%s VALUES(?,?,?,?,?,?,?)""" % symbol
+    conn.executemany(statement, data)
+    conn.commit()
 def add_predict(data, symbol, dt):
     # conn = sqlite3.connect("sqlite.db")  #创建sqlite.db数据库
     dts = numpy.array([dt]*10).reshape(10, 1)
